@@ -1,0 +1,21 @@
+{
+  "name": "web-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "build": "tsc",
+    "watch-basic": "tsc -w",
+    "start": "tsc && node main.js",
+    "watch-node": "nodemon --quiet main.js",
+    "watch": "concurrently -k -p \"[{name}]\" -n \"...,>>\" -c \"yellow.bold,green.bold\" \"npm:watch-basic\" \"npm:watch-node\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.1.0",
+    "typescript": "^5.4.5"
+  }
+}
