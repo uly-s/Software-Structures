@@ -63,6 +63,24 @@ The event loop is single-threaded and shares a thread with your JS code, which i
 
 When a callback returns or *awaits*, control returns from your code to the runtime so that it can emit events and shcedule other tasks. This means **JS code is meant to finish fast** because the event loop halts at the same time.
 
-So you're basically meant to work with the event loop / runtime in a sort of symbiotic bi-directional relationship. Seems kind of toxic/codependent but idk.
-
 ### Node.Js - Event Based Concurrency
+A server can have multiple connections simultaneously, and each connection can emit events. While an event is being handled, the runtime (single-threaded) cannot do a thing for the other connections until it returns. The longer an event is processed, the longer everything else is delayed.
+
+### Async/Sync - Blocking / Non-Blocking IO
+It's vital to avoid blocking the event loop for too long. Or things get gummed up. Solved by yielding to the run time, and moving CPU intensive code into a parallel scope.
+
+But understand the OS provides **blocking mode** and **non-blocking mode** for network IO
+
+- In **blocking mode**, the calling OS thread blocks until the result is ready
+- In **non-blocking mode**, the OS immediately returns if the result is not ready (or is), and can notify of readiness.
+
+Node.JS uses non-blocking to create concurrency (kitchen timer versus worker bee).
+
+### IO in Node.js is Asynchronous
+Most Node.js library functions related to IO are either callback-based or promise-based. Promises can be viewed as another way to manage callbacks. These are also described as asynchronous, meaning that the result is delivered via a callback. These APIs do not block the event loop because the JS code doesn’t wait for the result; instead, the JS code returns to the runtime, and when the result is ready, the runtime invokes the callback to continue your program.
+
+### Event-Based Programming Beyond Networking
+IO is more than disk files and networking. In GUI systems, user input from the mouse and keyboard is also IO. And event loops are not unique to the Node.js runtime; Web browsers and all other GUI applications also use event loops under the hood. You can transfer your experience in GUI programming to network programming and vice versa.
+
+### Promise-Based IO
+Promise-based APIs are like an async wrapper around a call-back, allowing you to await on a callback. It doesn't seem quite this simple, but a callback appears to be sync, and chaotic, while promises allow an async model to be used and prevent blocking the event loop.
