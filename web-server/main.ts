@@ -13,27 +13,27 @@ type Connection = {
     ended: boolean;
 
     // callbacks of the promises read
-    call: null | {
-        get: (data: Buffer) => void,
-        fail: (reason: Error) => void,
+    reader: null | {
+        resolve: (data: Buffer) => void,
+        reject: (reason: Error) => void,
     };
 }
 
 // socket wrapper
 function Init(socket: net.Socket): Connection {
     const connection: Connection = {
-        socket: socket, error: null, ended: false, call: null, 
+        socket: socket, error: null, ended: false, reader: null, 
     };
 
     socket.on('data', (data: Buffer) => {
-        console.assert(connection.call);
+        console.assert(connection.reader);
 
         // pause until next read
         connection.socket.pause();
 
         // fulfill promise of current read
-        connection.call!.get(data);
-        connection.call = null;
+        connection.reader!.resolve(data);
+        connection.reader = null;
     })
 
     socket.on('end', () => {
@@ -42,9 +42,9 @@ function Init(socket: net.Socket): Connection {
         connection.ended = true;
 
         // fulfill, send EOF
-        if(connection.call) {
-            connection.call.get(Buffer.from('')); 
-            connection.call = null;
+        if(connection.reader) {
+            connection.reader.resolve(Buffer.from('')); 
+            connection.reader = null;
         }
     });
 
@@ -54,9 +54,9 @@ function Init(socket: net.Socket): Connection {
         connection.error = error;
 
         // deliver, propagate error up
-        if (connection.call) {
-            connection.call.fail(error);
-            connection.call = null;
+        if (connection.reader) {
+            connection.reader.reject(error);
+            connection.reader = null;
         }
     })
 
@@ -66,25 +66,25 @@ function Init(socket: net.Socket): Connection {
 function Read(connection: Connection): Promise<Buffer> {
     
     // no concurrent calls 
-    console.assert(!connection.call);
+    console.assert(!connection.reader);
 
     // fulfill promise contract (defined in type and init above)
-    return new Promise((get, fail) => {
+    return new Promise((resolve, reject) => {
         
         // if there's an error
         if (connection.error) {
-            fail(connection.error);
+            reject(connection.error);
             return;
         }
         
         // if EOF
         if (connection.ended) {
-            get(Buffer.from(''))
+            resolve(Buffer.from(''))
             return;
         }
 
         // save callbacks
-        connection.call = {get: get, fail: fail};
+        connection.reader = {resolve: resolve, reject: reject};
 
         // resume 'data' event to fulfill promise
         connection.socket.resume();
@@ -97,11 +97,11 @@ function Write(connection: Connection, data: Buffer): Promise<void> {
     // checking EOF
     console.assert(data.length > 0);
 
-    return new Promise((get, fail) => {
+    return new Promise((resolve, reject) => {
 
         // if there's an error, fail
         if (connection.error) {
-            fail(connection.error);
+            reject(connection.error);
             return;
         }
 
@@ -112,10 +112,10 @@ function Write(connection: Connection, data: Buffer): Promise<void> {
         */
         connection.socket.write(data, (error?: Error) => {
             if (error) {
-                fail(error);
+                reject(error);
             }
             else {
-                get();
+                resolve();
             }
         })
     })
@@ -126,7 +126,9 @@ let server = net.createServer({
 });
 
 function connect(socket: net.Socket): void {
+
     console.log("Connected: ", socket.remoteAddress, socket.remotePort);
+    socket.resume(); // required by 'Connection' type
 
     socket.on('end', () => {
         // FIN received. The connection will be closed automatically.
@@ -142,10 +144,39 @@ function connect(socket: net.Socket): void {
             console.log('closing.');
             socket.end();   // this will send FIN and close the connection.
         }
+
     });
 }
 
-server.on('connection', connect);
+async function newConnection(socket: net.Socket): Promise<void> {
+    console.log('New Connection: ', socket.remoteAddress, socket.remotePort);
+
+    try {
+        await serve(socket);
+    }
+    catch (exception) {
+        console.error('Error: ', exception);
+    }
+    finally {
+        socket.destroy();
+    }
+}
+
+async function serve(socket: net.Socket): Promise<void> {
+    const connection = Init(socket);
+
+    while (true) {
+        const data = await Read(connection);
+        if (data.length === 0) {
+            break;
+        }
+
+        console.log('data:', data.toString());
+        await Write(connection, data);
+    }
+}
+
+server.on('connection', newConnection);
 server.on('error', (err: Error) => { throw err; });
 
 server.listen({host: '127.0.0.1', port: 1234});

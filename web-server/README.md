@@ -88,6 +88,45 @@ Promise-based APIs are like an async wrapper around a call-back, allowing you to
 # Chapter 4 - Promise
 Didn't want to do multiple files / folders for notes so they're all in here.
 
+## Promiseses
+```js
+function do_something_promise() {
+    return new Promise<T>((resolve, reject) => {
+        do_something_cb((err, result) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(result);
+            }
+        });
+    });
+}
+```
+let's us do 
+```js
+async function my_app() {
+    try {
+        const result: T = await do_something_promise();
+    } catch (err) {
+        // fail.
+    }
+}
+```
+instead of
+```js
+function my_app() {
+    do_something_cb((err, result) => {
+        if (err) {
+            // fail.
+        } else {
+            // success, use the result.
+        }
+    });
+}
+```
+The advantage lies in the neatly enapsulated logic, avoiding callback hell.
+When looking at the top level promise you see a promise which returns type T takes in 2 arguements (really a lambda which takes two arguments), 'resolve' which returns a value on await (promise fulfilled) or 'reject' on promise rejectet/failed, throwing an exception.
+
 ## 'async' and 'await'
 There are 2 types of JS functions, normal and async. 
 
