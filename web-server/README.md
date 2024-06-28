@@ -1,4 +1,4 @@
-# Chapter Notes
+# Chapter 3
 Just some essentials I'd like to remember.
 
 ## TCP
@@ -84,3 +84,25 @@ IO is more than disk files and networking. In GUI systems, user input from the m
 
 ### Promise-Based IO
 Promise-based APIs are like an async wrapper around a call-back, allowing you to await on a callback. It doesn't seem quite this simple, but a callback appears to be sync, and chaotic, while promises allow an async model to be used and prevent blocking the event loop.
+
+# Chapter 4 - Promise
+Didn't want to do multiple files / folders for notes so they're all in here.
+
+## 'async' and 'await'
+There are 2 types of JS functions, normal and async. 
+
+### async functions yield to the runtime by await.
+Promise (type) is initially  a way to manage callbacks (chaining). Async functions can return to the runtime in the middle of execution ('await'ing a promise). The execution of the async function resumes with the result of the promise. Allowing sequential IO code in the same function. 
+
+#### Tasks
+Calling async functions start new tasks. Similar to starting a thread.
+
+## Events -> Promises
+The net module doesn't provide a promise based API so we're gonna make one.
+```js
+function soRead(conn: TCPConn): Promise<Buffer>;
+function soWrite(conn: TCPConn, data: Buffer): Promise<void>;
+```
+
+
+
