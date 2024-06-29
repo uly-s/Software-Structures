@@ -37,6 +37,44 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var net = require("net");
+var DynamicBuffer = /** @class */ (function () {
+    function DynamicBuffer() {
+        this.data = Buffer.alloc(0);
+        this.length = 0;
+    }
+    DynamicBuffer.prototype.push = function (data) {
+        var newLength = this.length + data.length;
+        if (this.data.length < newLength) {
+            // get a temporary buffer for existing data
+            var temp = Buffer.alloc(this.data.length);
+            this.data.copy(temp);
+            // double size of data buffer
+            this.data = Buffer.alloc(newLength * 2);
+            // copy over old data from temp to new buffer
+            temp.copy(this.data);
+        }
+        data.copy(this.data, this.length);
+        this.length = newLength;
+    };
+    DynamicBuffer.prototype.cut = function () {
+        var index = this.data.indexOf('\n'.charCodeAt(0));
+        if (index === -1) {
+            return null;
+        } // no messages
+        var message = Buffer.from(this.data.subarray(0, index + 1));
+        this.pop(index + 1);
+        console.log('data:', this.data.toString());
+        console.log('cut:', message.toString());
+        return message;
+    };
+    DynamicBuffer.prototype.pop = function (index) {
+        this.data.copyWithin(0, index, this.length);
+        var newLength = this.length - index;
+        this.length = newLength >= 0 ? newLength : 0;
+        this.data.fill(0, this.length);
+    };
+    return DynamicBuffer;
+}());
 // socket wrapper
 function Init(socket) {
     var connection = {
@@ -163,26 +201,41 @@ function newConnection(socket) {
 }
 function serve(socket) {
     return __awaiter(this, void 0, void 0, function () {
-        var connection, data;
+        var connection, buffer, index, message, data, reply;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     connection = Init(socket);
+                    buffer = new DynamicBuffer();
+                    index = 0;
                     _a.label = 1;
                 case 1:
-                    if (!true) return [3 /*break*/, 4];
+                    if (!true) return [3 /*break*/, 8];
+                    message = buffer.cut();
+                    if (!!message) return [3 /*break*/, 3];
                     return [4 /*yield*/, Read(connection)];
                 case 2:
                     data = _a.sent();
                     if (data.length === 0) {
-                        return [3 /*break*/, 4];
+                        return [3 /*break*/, 8];
                     }
-                    console.log('data:', data.toString());
-                    return [4 /*yield*/, Write(connection, data)];
-                case 3:
-                    _a.sent();
+                    buffer.push(data);
                     return [3 /*break*/, 1];
-                case 4: return [2 /*return*/];
+                case 3:
+                    if (!message.equals(Buffer.from('quit\n'))) return [3 /*break*/, 5];
+                    return [4 /*yield*/, Write(connection, Buffer.from('bye!\n'))];
+                case 4:
+                    _a.sent();
+                    console.log('closing.');
+                    return [2 /*return*/];
+                case 5:
+                    reply = Buffer.concat([Buffer.from('echo: '), message]);
+                    return [4 /*yield*/, Write(connection, reply)];
+                case 6:
+                    _a.sent();
+                    _a.label = 7;
+                case 7: return [3 /*break*/, 1];
+                case 8: return [2 /*return*/];
             }
         });
     });
@@ -190,4 +243,3 @@ function serve(socket) {
 server.on('connection', newConnection);
 server.on('error', function (err) { throw err; });
 server.listen({ host: '127.0.0.1', port: 1234 });
-console.log(server);

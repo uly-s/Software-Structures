@@ -19,6 +19,55 @@ type Connection = {
     };
 }
 
+class DynamicBuffer {
+
+    data: Buffer;
+    length: number;
+
+    constructor() {
+        this.data = Buffer.alloc(0);
+        this.length = 0;
+    }
+
+    push(data: Buffer): void {
+        const newLength = this.length + data.length;
+        
+        if (this.data.length < newLength) {
+
+            // get a temporary buffer for existing data
+            const temp = Buffer.alloc(this.data.length); 
+            this.data.copy(temp);
+
+            // double size of data buffer
+            this.data = Buffer.alloc(newLength * 2);
+
+            // copy over old data from temp to new buffer
+            temp.copy(this.data);
+        }
+
+        data.copy(this.data, this.length);
+        this.length = newLength;
+    }
+
+    cut(): Buffer {
+        const index = this.data.indexOf('\n'.charCodeAt(0));
+        if (index === -1) { return null; } // no messages
+        const message = Buffer.from(this.data.subarray(0, index + 1));
+        this.pop(index + 1); 
+        console.log('data:', this.data.toString());
+        console.log('cut:', message.toString());
+        return message;
+    }
+
+    pop(index: number) {
+        this.data.copyWithin(0, index, this.length);
+        const newLength = this.length - index;
+        this.length = newLength >= 0 ? newLength : 0;
+        this.data.fill(0, this.length);
+    }
+    
+}
+
 // socket wrapper
 function Init(socket: net.Socket): Connection {
     const connection: Connection = {
@@ -163,16 +212,32 @@ async function newConnection(socket: net.Socket): Promise<void> {
 }
 
 async function serve(socket: net.Socket): Promise<void> {
-    const connection = Init(socket);
 
+    const connection = Init(socket);
+    const buffer: DynamicBuffer = new DynamicBuffer();
+    let index = 0;
     while (true) {
-        const data = await Read(connection);
-        if (data.length === 0) {
-            break;
+        const message: null|Buffer = buffer.cut();
+
+        // if we need more data, get it and push it to the buffer
+        if (!message) {
+            const data = await Read(connection);
+            if (data.length === 0) { break; }
+            buffer.push(data);
+            continue;
+        }
+        
+        
+        if (message.equals(Buffer.from('quit\n'))) {
+            await Write(connection, Buffer.from('bye!\n'));
+            console.log('closing.');
+            return;
+        }
+        else {
+            const reply = Buffer.concat([Buffer.from('echo: '), message]);
+            await Write(connection, reply);
         }
 
-        console.log('data:', data.toString());
-        await Write(connection, data);
     }
 }
 
@@ -180,5 +245,3 @@ server.on('connection', newConnection);
 server.on('error', (err: Error) => { throw err; });
 
 server.listen({host: '127.0.0.1', port: 1234});
-
-console.log(server);
