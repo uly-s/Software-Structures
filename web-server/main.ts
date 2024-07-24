@@ -140,7 +140,6 @@ function Read(connection: Connection): Promise<Buffer> {
     })
 }
 
-
 function Write(connection: Connection, data: Buffer): Promise<void> {
 
     // checking EOF
@@ -226,7 +225,6 @@ async function serve(socket: net.Socket): Promise<void> {
             buffer.push(data);
             continue;
         }
-        
         
         if (message.equals(Buffer.from('quit\n'))) {
             await Write(connection, Buffer.from('bye!\n'));
